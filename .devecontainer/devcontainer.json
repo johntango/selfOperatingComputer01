@@ -1,0 +1,16 @@
+{
+    "name": "CUA-Playwright-OpenAI",
+    "image": "mcr.microsoft.com/devcontainers/python:3.11",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-playwright.playwright"
+            ]
+        }
+    },
+    "remoteEnv": {
+        "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}",
+    },
+    "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt && npx playwright install --with-deps"
+}
