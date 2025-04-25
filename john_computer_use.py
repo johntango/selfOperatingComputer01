@@ -9,9 +9,6 @@ api_key = os.environ.get("OPENAI_API_KEY")
 print(f"OPENAI_API_KEY {api_key}")
 set_default_openai_key(api_key)
 # setup openai client
-client = 
-
-
 
 from playwright.async_api import Browser, Page, Playwright, async_playwright,TimeoutError
 # Configuration
@@ -21,15 +18,6 @@ DISPLAY_WIDTH  = 1024
 DISPLAY_HEIGHT = 768
 ITERATIONS     = 5
 
-# Initialize OpenAI client (Azure)
-token_provider = get_bearer_token_provider(
-    DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
-)
-"""client = AzureOpenAI(
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    azure_ad_token_provider=token_provider,
-    api_version=API_VERSION
-)"""
 
 async def take_screenshot(page):
     img = await page.screenshot()
@@ -55,7 +43,7 @@ async def process_model_response(response, page):
         call = calls[0]
         await handle_action(page, call.action)
         screenshot = await take_screenshot(page)
-        response = client.responses.create(
+        response = await openai.responses.create(
             model=MODEL,
             previous_response_id=response.id,
             tools=[{"type":"computer_use_preview",
@@ -76,9 +64,22 @@ async def process_model_response(response, page):
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False,
+        browser = await p.chromium.launch(headless=True,
                                          args=[f"--window-size={DISPLAY_WIDTH},{DISPLAY_HEIGHT}"])
-        page = await browser.new_page(viewport={"width":DISPLAY_WIDTH,"height":DISPLAY_HEIGHT})
+# Create a fresh BrowserContext so we can trace it
+        context = await browser.new_context(viewport={
+            "width": DISPLAY_WIDTH, "height": DISPLAY_HEIGHT
+        })
+
+        # 1️⃣ Start tracing (capture screenshots and DOM snapshots)
+        await context.tracing.start(
+            screenshots=True,
+            snapshots=True
+        )  # :contentReference[oaicite:0]{index=0}
+
+
+        #page = await context.new_page(viewport={"width":DISPLAY_WIDTH,"height":DISPLAY_HEIGHT})
+        page = await context.new_page()
         await page.goto("https://www.bing.com")
         user_task = input("Enter a task (or 'exit'): ")
         if user_task.lower() == "exit":
@@ -103,10 +104,14 @@ async def main():
                     {"type":"input_image","image_url": f"data:image/png;base64,{screenshot}"}
                 ]
             }],
+            
             reasoning={"generate_summary":"concise"},
             truncation="auto"
         )
         await process_model_response(response, page)
+        # 2️⃣ Stop tracing and write to trace.zip
+        await context.tracing.stop(path="trace.zip")  # :contentReference[oaicite:1]{index=1}
+
         await browser.close()
 
 if __name__ == "__main__":

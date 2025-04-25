@@ -1,7 +1,7 @@
 import asyncio
 import base64
 from typing import Literal, Union
-
+import os
 from playwright.async_api import Browser, Page, Playwright, async_playwright
 
 from agents import (
