@@ -78,7 +78,7 @@ async def process_model_response(response, page):
         )
         logger.info(f"[Iteration {iteration}] received new response id={response.id}")
 
-    return
+    return response
 
 async def main():
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -142,12 +142,20 @@ async def main():
         logger.info(f"Initial model response id={response.id}; entering action loop")
 
         # 3️⃣ Process the loop of actions ↔ model calls
-        await process_model_response(response, page)
+        response = await process_model_response(response, page)
 
         # 4️⃣ Finish tracing
         logger.info("Stopping trace and saving to trace.zip")
         await context.tracing.stop(path="trace.zip")
-
+# ▼ extract and print any 'text' outputs the agent returned
+         # adjust import path if needed
+        texts = [o for o in response.output if getattr(o, "type", None) == "text"]
+        if texts:
+            logger.info("📣 Agent’s final text outputs:")
+            for t in texts:
+                logger.info(t.text)
+        else:
+            logger.warning("⚠️ No text outputs found in the agent response.")
         await browser.close()
         logger.info("Browser closed; done.")
 
